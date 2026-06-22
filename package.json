@@ -1,0 +1,27 @@
+{
+  "name": "aduanaflow",
+  "version": "1.0.0",
+  "description": "Plataforma de Logística Aduanal y Clasificación de Fracciones Arancelarias",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js"
+  },
+  "keywords": [
+    "aduanas",
+    "logistica",
+    "aranceles",
+    "despacho",
+    "pedimentos"
+  ],
+  "author": "AduanaFlow Team",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "body-parser": "^2.3.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "nodemailer": "^9.0.1",
+    "sqlite3": "^6.0.1"
+  }
+}
