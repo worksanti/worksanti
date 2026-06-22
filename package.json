@@ -23,5 +23,8 @@
     "jsonwebtoken": "^9.0.3",
     "nodemailer": "^9.0.1",
     "sqlite3": "^6.0.1"
+  },
+  "engines": {
+    "node": "20.x"
   }
 }
