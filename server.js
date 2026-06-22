@@ -10,24 +10,15 @@ const nodemailer = require('nodemailer');
 
 const SECRET_KEY = 'aduanaflow_super_secret_key_2026';
 
-// --- Email Transporter Setup (Ethereal Email for Testing) ---
-let transporter;
-nodemailer.createTestAccount((err, account) => {
-  if (err) {
-    console.error('Failed to create a testing account. ' + err.message);
-    return;
+// --- Email Transporter Setup (GMAIL - PRODUCTION) ---
+let transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER, // Se configura en las Variables de Entorno de Render
+    pass: process.env.EMAIL_PASS  // Se configura en las Variables de Entorno de Render
   }
-  transporter = nodemailer.createTransport({
-    host: account.smtp.host,
-    port: account.smtp.port,
-    secure: account.smtp.secure,
-    auth: {
-      user: account.user,
-      pass: account.pass
-    }
-  });
-  console.log('Ethereal Email (Simulador) configurado. Los correos saldrán en la consola.');
 });
+console.log('Gmail SMTP configurado. Esperando variables de entorno en Render.');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
