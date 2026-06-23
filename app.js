@@ -49,44 +49,20 @@ document.addEventListener("DOMContentLoaded", () => {
   registerForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const u = document.getElementById("register-username").value;
-    const phone = document.getElementById("register-phone").value;
     const p = document.getElementById("register-password").value;
     try {
       const res = await fetch('/api/register', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({username: u, phone: phone, password: p})
+        body: JSON.stringify({username: u, password: p})
       });
       const data = await res.json();
       if (data.success) {
+        alert("Registro exitoso. ¡Ya puedes iniciar sesión!");
         document.getElementById("register-form").style.display = "none";
-        document.getElementById("verify-form").style.display = "block";
-        document.getElementById("verify-username").value = u;
-        alert("Código de verificación enviado a tu celular por SMS.");
+        document.getElementById("login-form").style.display = "block";
       } else {
         alert(data.error || "Registro fallido");
-      }
-    } catch(err) {
-      alert("Error de conexión");
-    }
-  });
-
-  verifyForm?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const code = document.getElementById("verify-code").value;
-    try {
-      const res = await fetch('/api/verify', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({username: document.getElementById("verify-username").value, code: code})
-      });
-      const data = await res.json();
-      if (data.success) {
-        alert("Cuenta activada exitosamente. Ahora puedes iniciar sesión.");
-        verifyForm.style.display = "none";
-        document.getElementById("link-to-login").click();
-      } else {
-        alert(data.error || "Verificación fallida");
       }
     } catch(err) {
       alert("Error de conexión");

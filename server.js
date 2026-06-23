@@ -6,22 +6,12 @@ const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const twilio = require('twilio');
 
 const SECRET_KEY = 'aduanaflow_super_secret_key_2026';
 
-// --- Twilio Setup (SMS Verification) ---
-let twilioClient;
-try {
-  if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
-    twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-    console.log('Twilio client configurado exitosamente.');
-  } else {
-    console.log('Faltan variables de entorno de Twilio. El envío de SMS fallará.');
-  }
-} catch (e) {
-  console.error("Error inicializando Twilio:", e);
-}
+// --- Verificación Desactivada ---
+// El usuario solicitó registro directo con puro usuario y contraseña.
+console.log('Sistema de Verificación (Email/SMS) desactivado. Las cuentas se auto-verifican.');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -190,69 +180,29 @@ function seedDataIfNeeded() {
 // ==========================================
 
 app.post('/api/register', async (req, res) => {
-  const { username, phone, password } = req.body;
-  if (!username || !phone || !password) return res.status(400).json({ error: 'Usuario, teléfono y contraseña son obligatorios' });
+  const { username, password } = req.body;
+  if (!username || !password) return res.status(400).json({ error: 'Usuario y contraseña son obligatorios' });
   
-  // Normalizar el teléfono (por si acaso el usuario no puso el + al inicio pero el frontend debería hacerlo)
-  const normalizedPhone = phone.startsWith('+') ? phone : '+' + phone;
-
-  db.get(`SELECT id FROM usuarios WHERE username = ? OR phone = ?`, [username, normalizedPhone], async (err, row) => {
+  db.get(`SELECT id FROM usuarios WHERE username = ?`, [username], async (err, row) => {
     if (err) return res.status(500).json({ error: 'Database error' });
-    if (row) return res.status(400).json({ error: 'El usuario o el teléfono ya está registrado' });
+    if (row) return res.status(400).json({ error: 'El usuario ya está registrado' });
 
     try {
       const hashedPassword = await bcrypt.hash(password, 10);
       const userId = `USR-${Date.now()}`;
-      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString(); // 6 digits
 
       db.run(
-        `INSERT INTO usuarios (id, username, password_hash, phone, is_verified, verification_code) VALUES (?, ?, ?, ?, 0, ?)`, 
-        [userId, username, hashedPassword, normalizedPhone, verificationCode], 
+        `INSERT INTO usuarios (id, username, password_hash, is_verified) VALUES (?, ?, ?, 1)`, 
+        [userId, username, hashedPassword], 
         async function(err) {
           if (err) {
             return res.status(500).json({ error: err.message });
           }
-          
-          if (twilioClient && process.env.TWILIO_PHONE_NUMBER) {
-            try {
-              await twilioClient.messages.create({
-                body: `Tu código de seguridad de AduanaFlow es: ${verificationCode}`,
-                from: process.env.TWILIO_PHONE_NUMBER,
-                to: normalizedPhone
-              });
-              console.log("SMS Verification sent to %s", normalizedPhone);
-              res.json({ success: true, message: 'Usuario registrado. Código SMS enviado.' });
-            } catch (smsErr) {
-              console.error("Error sending SMS:", smsErr);
-              res.json({ success: true, message: 'Usuario registrado, pero hubo un error enviando el SMS. Revisa los logs en Render.' });
-            }
-          } else {
-            console.log(`CÓDIGO DE VERIFICACIÓN SMS PARA ${normalizedPhone}: ${verificationCode}`);
-            res.json({ success: true, message: 'Usuario registrado. Variables Twilio no encontradas, código impreso en consola.' });
-          }
+          res.json({ success: true, message: 'Usuario registrado exitosamente. Ya puedes iniciar sesión.' });
         }
       );
     } catch (hashErr) {
       res.status(500).json({ error: 'Error processing password' });
-    }
-  });
-});
-
-app.post('/api/verify', (req, res) => {
-  const { username, code } = req.body;
-  if (!username || !code) return res.status(400).json({ error: 'Usuario y código son obligatorios' });
-
-  db.get(`SELECT * FROM usuarios WHERE username = ?`, [username], (err, user) => {
-    if (err) return res.status(500).json({ error: err.message });
-    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
-
-    if (user.verification_code === code) {
-      db.run(`UPDATE usuarios SET is_verified = 1, verification_code = NULL WHERE id = ?`, [user.id], (updateErr) => {
-        if (updateErr) return res.status(500).json({ error: updateErr.message });
-        res.json({ success: true, message: 'Cuenta verificada exitosamente.' });
-      });
-    } else {
-      res.status(400).json({ error: 'Código incorrecto' });
     }
   });
 });
@@ -262,10 +212,6 @@ app.post('/api/login', (req, res) => {
   db.get(`SELECT * FROM usuarios WHERE username = ?`, [username], async (err, user) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!user) return res.status(401).json({ error: 'Usuario no encontrado' });
-
-    if (user.is_verified === 0) {
-      return res.status(403).json({ error: 'Cuenta no verificada. Por favor ingresa el código SMS.' });
-    }
 
     const match = await bcrypt.compare(password, user.password_hash);
     if (!match) return res.status(401).json({ error: 'Contraseña incorrecta' });
