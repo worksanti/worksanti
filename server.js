@@ -10,15 +10,9 @@ const nodemailer = require('nodemailer');
 
 const SECRET_KEY = 'aduanaflow_super_secret_key_2026';
 
-// --- Email Transporter Setup (GMAIL - PRODUCTION) ---
-let transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER, // Se configura en las Variables de Entorno de Render
-    pass: process.env.EMAIL_PASS  // Se configura en las Variables de Entorno de Render
-  }
-});
-console.log('Gmail SMTP configurado. Esperando variables de entorno en Render.');
+// --- Email Transporter (Desactivado temporalmente) ---
+// Se requiere una cuenta SMTP válida (Google App Password) para activarlo.
+console.log('Sistema de correos desactivado. Las cuentas se auto-verifican.');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -188,32 +182,17 @@ app.post('/api/register', async (req, res) => {
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const userId = `USR-${Date.now()}`;
-    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString(); // 6 digits
 
     db.run(
-      `INSERT INTO usuarios (id, username, password_hash, email, is_verified, verification_code) VALUES (?, ?, ?, ?, 0, ?)`, 
-      [userId, username, hashedPassword, email, verificationCode], 
-      async function(err) {
+      `INSERT INTO usuarios (id, username, password_hash, email, is_verified) VALUES (?, ?, ?, ?, 1)`, 
+      [userId, username, hashedPassword, email], 
+      function(err) {
         if (err) {
           if (err.message.includes('UNIQUE constraint failed')) {
             return res.status(400).json({ error: 'El nombre de usuario o correo ya está registrado' });
           }
           return res.status(500).json({ error: err.message });
         }
-        
-        // Send email
-        if (transporter) {
-          try {
-            let info = await transporter.sendMail({
-              from: '"AduanaFlow Security" <no-reply@aduanaflow.test>',
-              to: email,
-              subject: "Tu Código de Verificación AduanaFlow",
-              text: `Hola ${username},\n\nTu código de verificación es: ${verificationCode}\n\nIngrésalo en la plataforma para activar tu cuenta.`,
-              html: `<b>Hola ${username},</b><br><br>Tu código de verificación es: <b>${verificationCode}</b><br><br>Ingrésalo en la plataforma para activar tu cuenta.`
-            });
-            console.log("Verification Email sent: %s", info.messageId);
-            console.log("Preview URL: %s", nodemailer.getTestMessageUrl(info));
-          } catch(emailErr) {
             console.error("Error sending email:", emailErr);
           }
         }
