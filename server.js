@@ -6,13 +6,22 @@ const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
+const twilio = require('twilio');
 
 const SECRET_KEY = 'aduanaflow_super_secret_key_2026';
 
-// --- Email Transporter (Desactivado temporalmente) ---
-// Se requiere una cuenta SMTP válida (Google App Password) para activarlo.
-console.log('Sistema de correos desactivado. Las cuentas se auto-verifican.');
+// --- Twilio Setup (SMS Verification) ---
+let twilioClient;
+try {
+  if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+    twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+    console.log('Twilio client configurado exitosamente.');
+  } else {
+    console.log('Faltan variables de entorno de Twilio. El envío de SMS fallará.');
+  }
+} catch (e) {
+  console.error("Error inicializando Twilio:", e);
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -89,26 +98,31 @@ const db = new sqlite3.Database(dbFile, (err) => {
         )`, (err3) => {
           if (err3) console.error("Error creating calculos table", err3);
           else {
-            db.run(`CREATE TABLE IF NOT EXISTS usuarios (
-              id TEXT PRIMARY KEY,
-              username TEXT UNIQUE,
-              password_hash TEXT,
-              email TEXT,
-              is_verified INTEGER DEFAULT 0,
-              verification_code TEXT
-            )`, (err4) => {
-              if (err4) console.error("Error creating usuarios table", err4);
-              else {
-                // Migrate existing databases silently
-                db.run("ALTER TABLE registros ADD COLUMN user_id TEXT", () => {});
-                db.run("ALTER TABLE embarques ADD COLUMN user_id TEXT", () => {});
-                db.run("ALTER TABLE calculos ADD COLUMN user_id TEXT", () => {});
-                db.run("ALTER TABLE usuarios ADD COLUMN email TEXT", () => {});
-                db.run("ALTER TABLE usuarios ADD COLUMN is_verified INTEGER DEFAULT 0", () => {});
-                db.run("ALTER TABLE usuarios ADD COLUMN verification_code TEXT", () => {
-                  seedDataIfNeeded();
-                });
-              }
+            db.serialize(() => {
+              // Configuración para permitir múltiples conexiones simultáneas
+              db.run("PRAGMA journal_mode = WAL");
+            
+              db.run(`CREATE TABLE IF NOT EXISTS usuarios (
+                id TEXT PRIMARY KEY,
+                username TEXT UNIQUE,
+                password_hash TEXT,
+                email TEXT,
+                phone TEXT UNIQUE,
+                is_verified INTEGER DEFAULT 0,
+                verification_code TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+              )`);
+              
+              // Agregar silenciosamente la columna phone por si la tabla ya existe
+              db.run("ALTER TABLE usuarios ADD COLUMN phone TEXT", (err) => {
+                // Ignoramos el error si la columna ya existe
+              });
+
+              db.run("ALTER TABLE registros ADD COLUMN user_id TEXT", () => {});
+              db.run("ALTER TABLE embarques ADD COLUMN user_id TEXT", () => {});
+              db.run("ALTER TABLE calculos ADD COLUMN user_id TEXT", () => {});
+              
+              seedDataIfNeeded();
             });
           }
         });
@@ -176,36 +190,58 @@ function seedDataIfNeeded() {
 // ==========================================
 
 app.post('/api/register', async (req, res) => {
-  const { username, email, password } = req.body;
-  if (!username || !email || !password) return res.status(400).json({ error: 'Usuario, correo y contraseña son obligatorios' });
+  const { username, phone, password } = req.body;
+  if (!username || !phone || !password) return res.status(400).json({ error: 'Usuario, teléfono y contraseña son obligatorios' });
+  
+  // Normalizar el teléfono (por si acaso el usuario no puso el + al inicio pero el frontend debería hacerlo)
+  const normalizedPhone = phone.startsWith('+') ? phone : '+' + phone;
 
-  try {
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const userId = `USR-${Date.now()}`;
+  db.get(`SELECT id FROM usuarios WHERE username = ? OR phone = ?`, [username, normalizedPhone], async (err, row) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    if (row) return res.status(400).json({ error: 'El usuario o el teléfono ya está registrado' });
 
-    db.run(
-      `INSERT INTO usuarios (id, username, password_hash, email, is_verified) VALUES (?, ?, ?, ?, 1)`, 
-      [userId, username, hashedPassword, email], 
-      function(err) {
-        if (err) {
-          if (err.message.includes('UNIQUE constraint failed')) {
-            return res.status(400).json({ error: 'El nombre de usuario o correo ya está registrado' });
+    try {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const userId = `USR-${Date.now()}`;
+      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString(); // 6 digits
+
+      db.run(
+        `INSERT INTO usuarios (id, username, password_hash, phone, is_verified, verification_code) VALUES (?, ?, ?, ?, 0, ?)`, 
+        [userId, username, hashedPassword, normalizedPhone, verificationCode], 
+        async function(err) {
+          if (err) {
+            return res.status(500).json({ error: err.message });
           }
-          return res.status(500).json({ error: err.message });
-        }
-            console.error("Error sending email:", emailErr);
+          
+          if (twilioClient && process.env.TWILIO_PHONE_NUMBER) {
+            try {
+              await twilioClient.messages.create({
+                body: `Tu código de seguridad de AduanaFlow es: ${verificationCode}`,
+                from: process.env.TWILIO_PHONE_NUMBER,
+                to: normalizedPhone
+              });
+              console.log("SMS Verification sent to %s", normalizedPhone);
+              res.json({ success: true, message: 'Usuario registrado. Código SMS enviado.' });
+            } catch (smsErr) {
+              console.error("Error sending SMS:", smsErr);
+              res.json({ success: true, message: 'Usuario registrado, pero hubo un error enviando el SMS. Revisa los logs en Render.' });
+            }
+          } else {
+            console.log(`CÓDIGO DE VERIFICACIÓN SMS PARA ${normalizedPhone}: ${verificationCode}`);
+            res.json({ success: true, message: 'Usuario registrado. Variables Twilio no encontradas, código impreso en consola.' });
           }
         }
-
-        res.json({ success: true, message: 'Usuario registrado. Por favor verifica tu correo.' });
-    });
-  } catch (err) {
-    res.status(500).json({ error: 'Error encrypting password' });
-  }
+      );
+    } catch (hashErr) {
+      res.status(500).json({ error: 'Error processing password' });
+    }
+  });
 });
 
 app.post('/api/verify', (req, res) => {
   const { username, code } = req.body;
+  if (!username || !code) return res.status(400).json({ error: 'Usuario y código son obligatorios' });
+
   db.get(`SELECT * FROM usuarios WHERE username = ?`, [username], (err, user) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
@@ -228,7 +264,7 @@ app.post('/api/login', (req, res) => {
     if (!user) return res.status(401).json({ error: 'Usuario no encontrado' });
 
     if (user.is_verified === 0) {
-      return res.status(403).json({ error: 'Cuenta no verificada. Por favor revisa tu correo.' });
+      return res.status(403).json({ error: 'Cuenta no verificada. Por favor ingresa el código SMS.' });
     }
 
     const match = await bcrypt.compare(password, user.password_hash);

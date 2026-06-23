@@ -49,19 +49,20 @@ document.addEventListener("DOMContentLoaded", () => {
   registerForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const u = document.getElementById("register-username").value;
-    const email = document.getElementById("register-email").value;
+    const phone = document.getElementById("register-phone").value;
     const p = document.getElementById("register-password").value;
     try {
       const res = await fetch('/api/register', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({username: u, email: email, password: p})
+        body: JSON.stringify({username: u, phone: phone, password: p})
       });
       const data = await res.json();
       if (data.success) {
-        tempUsernameForVerification = u;
-        registerForm.style.display = "none";
-        verifyForm.style.display = "block";
+        document.getElementById("register-form").style.display = "none";
+        document.getElementById("verify-form").style.display = "block";
+        document.getElementById("verify-username").value = u;
+        alert("Código de verificación enviado a tu celular por SMS.");
       } else {
         alert(data.error || "Registro fallido");
       }
@@ -77,7 +78,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const res = await fetch('/api/verify', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({username: tempUsernameForVerification, code: code})
+        body: JSON.stringify({username: document.getElementById("verify-username").value, code: code})
       });
       const data = await res.json();
       if (data.success) {
