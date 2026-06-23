@@ -1388,7 +1388,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // Priority left-border (secondary indicator)
-    const priBorder = { 1:'#f43f5e', 2:'#f59e0b', 3:'#3b82f6', 4:'#cbd5e1' };
+    const priBorder = { 1:'#22c55e', 2:'#eab308', 3:'#f97316', 4:'#e53e3e' };
 
     body.innerHTML = '';
     filtered.forEach(r => {
@@ -1401,7 +1401,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const opBadge  = r.operacion === 'I' ? '<span class="badge badge-naranja">I</span>' : r.operacion === 'E' ? '<span class="badge badge-verde">E</span>' : '<span class="badge badge-gris">T</span>';
       const edoBadge = r.estado === 'T'    ? '<span class="badge badge-verde">T</span>'    : r.estado === 'P'   ? '<span class="badge badge-naranja">P</span>'  : '<span class="badge badge-rojo">C</span>';
-      const priLabel = p === 1 ? '<span class="badge badge-rojo" style="font-weight:800;">1</span>' : p === 2 ? '<span class="badge badge-naranja" style="font-weight:800;">2</span>' : p === 3 ? '<span class="badge" style="background:#eff6ff;color:#1d4ed8;border:1px solid #93c5fd;font-weight:800;">3</span>' : '<span class="badge badge-gris">4</span>';
+      const priLabel = p === 4 ? '<span class="badge badge-rojo" style="font-weight:800;">4</span>' : p === 3 ? '<span class="badge badge-naranja" style="font-weight:800;">3</span>' : p === 2 ? '<span class="badge badge-amarillo" style="font-weight:800;">2</span>' : '<span class="badge badge-verde">1</span>';
 
       const tr = document.createElement('tr');
       tr.setAttribute('data-age', ageCat);
@@ -1472,9 +1472,9 @@ document.addEventListener("DOMContentLoaded", () => {
     previewCurrentId = id;
 
     const p = r.prioridad || 4;
-    const priNames  = { 1: '🔴 URGENTE', 2: '🟡 ALTA', 3: '🔵 MEDIA', 4: '⚪ NORMAL' };
-    const priClass  = { 1: 'badge-rojo', 2: 'badge-naranja', 3: '', 4: 'badge-gris' };
-    const priStyle  = { 1: '', 2: '', 3: 'background:#eff6ff;color:#1d4ed8;border:1px solid #93c5fd;', 4: '' };
+    const priNames  = { 1: '🟢 NORMAL', 2: '🟡 MEDIA', 3: '🟠 ALTA', 4: '🔴 URGENTE' };
+    const priClass  = { 1: 'badge-verde', 2: 'badge-amarillo', 3: 'badge-naranja', 4: 'badge-rojo' };
+    const priStyle  = { 1: '', 2: '', 3: '', 4: '' };
     const opText    = r.operacion === 'I' ? 'Importación' : r.operacion === 'E' ? 'Exportación' : r.operacion;
     const edoText   = r.estado === 'T' ? '✅ Terminada' : r.estado === 'P' ? '⏳ En Proceso' : r.estado;
 
@@ -1757,8 +1757,8 @@ document.addEventListener("DOMContentLoaded", () => {
       // ── REPORTE POR PRIORIDAD (URGENCIAS) ──────────────────────────────────
       filtered.sort((a, b) => (a.prioridad || 4) - (b.prioridad || 4));
 
-      const priLabelMap = { 1:'🔴 1 — URGENTE', 2:'🟡 2 — ALTA', 3:'🔵 3 — MEDIA', 4:'⚪ 4 — NORMAL' };
-      const priBorderMap = { 1:'#e53e3e', 2:'#d97706', 3:'#2563eb', 4:'#9ca3af' };
+      const priLabelMap = { 1:'🟢 1 — NORMAL', 2:'🟡 2 — MEDIA', 3:'🟠 3 — ALTA', 4:'🔴 4 — URGENTE' };
+      const priBorderMap = { 1:'#22c55e', 2:'#eab308', 3:'#f97316', 4:'#e53e3e' };
 
       const rows = filtered.map((r, i) => {
         const p      = r.prioridad || 4;
@@ -1809,10 +1809,10 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
           <!-- LEYENDA PRIORIDAD -->
           <div style="display:flex; gap:12px; margin-bottom:10px; font-size:0.72rem;">
-            <span style="border-left:4px solid #e53e3e; padding:2px 8px; background:#ffe4e1;">&#9632; Pri. 1 &mdash; Urgente</span>
-            <span style="border-left:4px solid #d97706; padding:2px 8px; background:#fffde7;">&#9632; Pri. 2 &mdash; Alta</span>
-            <span style="border-left:4px solid #2563eb; padding:2px 8px; background:#e3f2fd;">&#9632; Pri. 3 &mdash; Media</span>
-            <span style="border-left:4px solid #9ca3af; padding:2px 8px; background:#f9fafb;">&#9632; Pri. 4 &mdash; Normal</span>
+            <span style="border-left:4px solid #e53e3e; padding:2px 8px; background:#ffe4e1;">&#9632; Pri. 4 &mdash; Urgente</span>
+            <span style="border-left:4px solid #f97316; padding:2px 8px; background:#ffedd5;">&#9632; Pri. 3 &mdash; Alta</span>
+            <span style="border-left:4px solid #eab308; padding:2px 8px; background:#fef9c3;">&#9632; Pri. 2 &mdash; Media</span>
+            <span style="border-left:4px solid #22c55e; padding:2px 8px; background:#dcfce7;">&#9632; Pri. 1 &mdash; Normal</span>
           </div>
           <table style="width:100%; border-collapse:collapse; font-size:0.78rem;">
             <thead>

@@ -775,6 +775,9 @@ body {
 .badge-naranja { background: var(--color-naranja-bg); color: var(--color-naranja); border-color: var(--color-naranja-border); }
 .badge-naranja::before { background: var(--color-naranja); }
 
+.badge-amarillo { background: #fef9c3; color: #ca8a04; border-color: #fde047; }
+.badge-amarillo::before { background: #eab308; }
+
 .badge-rojo    { background: var(--color-rojo-bg);    color: var(--color-rojo);    border-color: var(--color-rojo-border); }
 .badge-rojo::before    { background: var(--color-rojo); }
 
