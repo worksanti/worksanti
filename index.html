@@ -108,6 +108,12 @@
             <span>Convertidor</span>
           </a>
         </li>
+        <li class="menu-item" data-section="facturas">
+          <a href="#facturas">
+            <i class="icon-nav" data-lucide="receipt"></i>
+            <span>Editor Facturas</span>
+          </a>
+        </li>
       </ul>
 
       <div class="sidebar-footer">
@@ -728,6 +734,152 @@
                   <!-- JS populated rows -->
                 </tbody>
               </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= EDITOR DE FACTURAS ================= -->
+        <section id="facturas" class="page-section">
+
+          <!-- Toolbar -->
+          <div class="glass-card" style="margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+              <div>
+                <div class="card-title" style="margin-bottom: 4px;">Editor de Facturas</div>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Crea, edita e imprime facturas profesionales con todos los campos requeridos.</p>
+              </div>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn-secondary" id="btn-factura-nueva">
+                  <i data-lucide="file-plus" style="width:16px;height:16px;"></i>
+                  <span>Nueva Factura</span>
+                </button>
+                <button class="btn-secondary" id="btn-factura-pdf" style="border-color: #f59e0b; color: #f59e0b;">
+                  <i data-lucide="printer" style="width:16px;height:16px;"></i>
+                  <span>Imprimir / PDF</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Invoice Canvas -->
+          <div class="glass-card" id="factura-canvas" style="padding: 40px 48px; max-width: 900px; margin: 0 auto; background: #fff; color: #111; border-radius: 16px; box-shadow: 0 8px 40px rgba(0,0,0,0.25);">
+
+            <!-- Header row -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 36px; gap: 24px; flex-wrap: wrap;">
+              <!-- Emisor -->
+              <div style="flex: 1; min-width: 220px;">
+                <div class="fac-logo-box" id="fac-logo-box" title="Haz clic para subir logo">
+                  <i data-lucide="image" style="width:28px;height:28px;color:#aaa;"></i>
+                  <span style="font-size:0.75rem;color:#aaa;margin-top:4px;">Logo empresa</span>
+                  <input type="file" id="fac-logo-input" accept="image/*" style="display:none;">
+                </div>
+                <div class="fac-field-group" style="margin-top: 14px;">
+                  <input class="fac-input fac-company" id="fac-emisor-nombre" value="Mi Empresa S.A. de C.V." placeholder="Nombre de la empresa">
+                  <input class="fac-input fac-small" id="fac-emisor-rfc" value="RFC: MEM-000000-000" placeholder="RFC">
+                  <input class="fac-input fac-small" id="fac-emisor-dir" value="Calle Ejemplo #100, Ciudad" placeholder="Dirección">
+                  <input class="fac-input fac-small" id="fac-emisor-tel" value="Tel: +52 000 000 0000" placeholder="Teléfono">
+                  <input class="fac-input fac-small" id="fac-emisor-email" value="contacto@empresa.com" placeholder="Email">
+                </div>
+              </div>
+              <!-- Factura Info -->
+              <div style="text-align: right; min-width: 200px;">
+                <h1 style="font-size: 2.2rem; font-weight: 800; color: #4f46e5; margin: 0 0 6px;">FACTURA</h1>
+                <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-end;">
+                  <div style="display:flex; gap:8px; align-items:center;">
+                    <span style="font-size:0.8rem;color:#555;font-weight:600;">No.:</span>
+                    <input class="fac-input fac-small" id="fac-numero" value="001" style="text-align:right;width:80px;">
+                  </div>
+                  <div style="display:flex; gap:8px; align-items:center;">
+                    <span style="font-size:0.8rem;color:#555;font-weight:600;">Fecha:</span>
+                    <input class="fac-input fac-small" type="date" id="fac-fecha" style="text-align:right;width:130px;">
+                  </div>
+                  <div style="display:flex; gap:8px; align-items:center;">
+                    <span style="font-size:0.8rem;color:#555;font-weight:600;">Vence:</span>
+                    <input class="fac-input fac-small" type="date" id="fac-vence" style="text-align:right;width:130px;">
+                  </div>
+                  <div style="display:flex; gap:8px; align-items:center;">
+                    <span style="font-size:0.8rem;color:#555;font-weight:600;">Moneda:</span>
+                    <select class="fac-input fac-small" id="fac-moneda" style="width:90px;">
+                      <option value="MXN">MXN</option>
+                      <option value="USD">USD</option>
+                      <option value="EUR">EUR</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Divider -->
+            <div style="height: 2px; background: linear-gradient(90deg, #4f46e5, #7c3aed); border-radius: 2px; margin-bottom: 28px;"></div>
+
+            <!-- Receptor -->
+            <div style="background: #f8f7ff; border-radius: 10px; padding: 18px 22px; margin-bottom: 28px;">
+              <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #4f46e5; margin-bottom: 10px;">FACTURAR A</div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <div>
+                  <input class="fac-input fac-medium" id="fac-receptor-nombre" value="Cliente Ejemplo" placeholder="Nombre del cliente">
+                  <input class="fac-input fac-small" id="fac-receptor-rfc" value="RFC: CLI-000000-000" placeholder="RFC del cliente">
+                  <input class="fac-input fac-small" id="fac-receptor-dir" value="Dirección del cliente" placeholder="Dirección">
+                </div>
+                <div>
+                  <input class="fac-input fac-small" id="fac-receptor-contacto" value="Contacto: Nombre" placeholder="Nombre de contacto">
+                  <input class="fac-input fac-small" id="fac-receptor-tel" value="Tel: +52 000 000 0000" placeholder="Teléfono">
+                  <input class="fac-input fac-small" id="fac-receptor-email" value="cliente@email.com" placeholder="Email">
+                </div>
+              </div>
+            </div>
+
+            <!-- Items Table -->
+            <table class="fac-table" id="fac-items-table">
+              <thead>
+                <tr>
+                  <th style="width:40%;">Descripción / Concepto</th>
+                  <th style="width:10%; text-align:center;">Cant.</th>
+                  <th style="width:15%; text-align:right;">Precio Unit.</th>
+                  <th style="width:12%; text-align:center;">IVA %</th>
+                  <th style="width:15%; text-align:right;">Subtotal</th>
+                  <th style="width:8%; text-align:center;">⠀</th>
+                </tr>
+              </thead>
+              <tbody id="fac-items-body">
+                <!-- JS populated -->
+              </tbody>
+            </table>
+            <div style="margin-top: 10px;">
+              <button class="btn-secondary" id="btn-add-item-fac" style="font-size:0.8rem; padding: 6px 14px;">
+                <i data-lucide="plus" style="width:14px;height:14px;"></i>
+                <span>Agregar concepto</span>
+              </button>
+            </div>
+
+            <!-- Totals -->
+            <div style="display: flex; justify-content: flex-end; margin-top: 28px;">
+              <div style="min-width: 280px;">
+                <div class="fac-total-row">
+                  <span>Subtotal</span>
+                  <span id="fac-subtotal-display">$0.00</span>
+                </div>
+                <div class="fac-total-row">
+                  <span>IVA</span>
+                  <span id="fac-iva-display">$0.00</span>
+                </div>
+                <div class="fac-total-row fac-total-grand">
+                  <span>TOTAL</span>
+                  <span id="fac-total-display">$0.00</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Notes -->
+            <div style="margin-top: 32px; border-top: 1px dashed #ddd; padding-top: 20px;">
+              <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: #888; margin-bottom: 8px;">NOTAS / CONDICIONES DE PAGO</div>
+              <textarea class="fac-textarea" id="fac-notas" placeholder="Ej. Pago a 30 días. Banco: BBVA. CLABE: 000000000000000000">Pago a 30 días. Gracias por su preferencia.</textarea>
+            </div>
+
+            <!-- Footer -->
+            <div style="margin-top: 28px; text-align: center; font-size: 0.75rem; color: #aaa;">
+              <div style="height: 1px; background: #eee; margin-bottom: 12px;"></div>
+              <input class="fac-input fac-small" id="fac-footer" value="Documento generado por AduanaFlow · worksanti.onrender.com" style="text-align:center; color:#aaa; font-size:0.75rem; width: 100%;">
             </div>
           </div>
         </section>

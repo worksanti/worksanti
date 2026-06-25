@@ -2452,9 +2452,177 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('btn-excel-report')?.addEventListener('click', exportToExcel);
   }
 
+  // ═══════════════════════════════════════════════
+  //  EDITOR DE FACTURAS
+  // ═══════════════════════════════════════════════
+  function initFacturaEditor() {
+    // Set today's date and due date (+30 days) as defaults
+    const today = new Date();
+    const due   = new Date(today); due.setDate(due.getDate() + 30);
+    const fmt   = d => d.toISOString().split('T')[0];
+    const fechaEl = document.getElementById('fac-fecha');
+    const venceEl = document.getElementById('fac-vence');
+    if (fechaEl) fechaEl.value = fmt(today);
+    if (venceEl) venceEl.value = fmt(due);
+
+    // Seed with one empty row
+    facItems = [];
+    addFacturaRow();
+    renderFacturaItems();
+
+    // Logo upload
+    const logoBox   = document.getElementById('fac-logo-box');
+    const logoInput = document.getElementById('fac-logo-input');
+    logoBox?.addEventListener('click', () => logoInput?.click());
+    logoInput?.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        logoBox.innerHTML = `<img src="${ev.target.result}" alt="Logo">`;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Add concept row
+    document.getElementById('btn-add-item-fac')?.addEventListener('click', () => {
+      addFacturaRow();
+      renderFacturaItems();
+    });
+
+    // Print / PDF
+    document.getElementById('btn-factura-pdf')?.addEventListener('click', () => {
+      window.print();
+    });
+
+    // Nueva Factura — reset
+    document.getElementById('btn-factura-nueva')?.addEventListener('click', () => {
+      if (!confirm('¿Crear una nueva factura? Se perderán los datos actuales no guardados.')) return;
+      document.getElementById('fac-emisor-nombre').value = 'Mi Empresa S.A. de C.V.';
+      document.getElementById('fac-emisor-rfc').value    = 'RFC: MEM-000000-000';
+      document.getElementById('fac-emisor-dir').value    = 'Calle Ejemplo #100, Ciudad';
+      document.getElementById('fac-emisor-tel').value    = 'Tel: +52 000 000 0000';
+      document.getElementById('fac-emisor-email').value  = 'contacto@empresa.com';
+      document.getElementById('fac-receptor-nombre').value   = 'Cliente Ejemplo';
+      document.getElementById('fac-receptor-rfc').value      = 'RFC: CLI-000000-000';
+      document.getElementById('fac-receptor-dir').value      = 'Dirección del cliente';
+      document.getElementById('fac-receptor-contacto').value = 'Contacto: Nombre';
+      document.getElementById('fac-receptor-tel').value      = 'Tel: +52 000 000 0000';
+      document.getElementById('fac-receptor-email').value    = 'cliente@email.com';
+      document.getElementById('fac-numero').value  = '001';
+      document.getElementById('fac-notas').value   = 'Pago a 30 días. Gracias por su preferencia.';
+      // reset logo box
+      const lb = document.getElementById('fac-logo-box');
+      if (lb) lb.innerHTML = `<i data-lucide="image" style="width:28px;height:28px;color:#aaa;"></i><span style="font-size:0.75rem;color:#aaa;margin-top:4px;">Logo empresa</span><input type="file" id="fac-logo-input" accept="image/*" style="display:none;">`;
+      const today2 = new Date(); const due2 = new Date(today2); due2.setDate(due2.getDate()+30);
+      document.getElementById('fac-fecha').value = fmt(today2);
+      document.getElementById('fac-vence').value = fmt(due2);
+      facItems = []; addFacturaRow(); renderFacturaItems();
+      lucide?.createIcons();
+    });
+
+    // Currency change → reformat totals
+    document.getElementById('fac-moneda')?.addEventListener('change', updateFacturaTotals);
+  }
+
+  let facItems = [];
+  let facNextId = 1;
+
+  function addFacturaRow() {
+    facItems.push({ id: facNextId++, desc: '', qty: 1, price: 0, iva: 16 });
+  }
+
+  function renderFacturaItems() {
+    const tbody = document.getElementById('fac-items-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    facItems.forEach((item, idx) => {
+      const subtotal = item.qty * item.price;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><input type="text"   value="${escapeHtml(item.desc)}"  placeholder="Descripción del servicio o producto" data-idx="${idx}" data-field="desc"></td>
+        <td style="text-align:center;"><input type="number" value="${item.qty}"   min="1"   style="text-align:center;width:60px;" data-idx="${idx}" data-field="qty"></td>
+        <td style="text-align:right;"><input type="number"  value="${item.price}" min="0" step="0.01" style="text-align:right;" data-idx="${idx}" data-field="price"></td>
+        <td style="text-align:center;">
+          <select data-idx="${idx}" data-field="iva" style="width:70px;text-align:center;">
+            <option value="0"  ${item.iva===0?'selected':''}>0%</option>
+            <option value="8"  ${item.iva===8?'selected':''}>8%</option>
+            <option value="16" ${item.iva===16?'selected':''}>16%</option>
+          </select>
+        </td>
+        <td style="text-align:right; font-weight:600;" id="fac-sub-${item.id}">${formatFacMoney(subtotal)}</td>
+        <td><button class="fac-row-del" data-id="${item.id}" title="Eliminar fila"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    // Re-init lucide icons
+    lucide?.createIcons();
+
+    // Input listeners
+    tbody.querySelectorAll('input, select').forEach(el => {
+      el.addEventListener('input', e => {
+        const idx2  = parseInt(e.target.dataset.idx);
+        const field = e.target.dataset.field;
+        if (field === 'qty')   facItems[idx2].qty   = parseFloat(e.target.value) || 0;
+        if (field === 'price') facItems[idx2].price = parseFloat(e.target.value) || 0;
+        if (field === 'iva')   facItems[idx2].iva   = parseFloat(e.target.value) || 0;
+        if (field === 'desc')  facItems[idx2].desc  = e.target.value;
+        updateFacturaTotals();
+        // Update subtotal cell inline
+        const sub = facItems[idx2].qty * facItems[idx2].price;
+        const cell = document.getElementById(`fac-sub-${facItems[idx2].id}`);
+        if (cell) cell.textContent = formatFacMoney(sub);
+      });
+    });
+
+    // Delete listeners
+    tbody.querySelectorAll('.fac-row-del').forEach(btn => {
+      btn.addEventListener('click', e => {
+        const id = parseInt(e.currentTarget.dataset.id);
+        if (facItems.length <= 1) { showToast('Debe haber al menos un concepto.', 'warning'); return; }
+        facItems = facItems.filter(i => i.id !== id);
+        renderFacturaItems();
+        updateFacturaTotals();
+      });
+    });
+
+    updateFacturaTotals();
+  }
+
+  function updateFacturaTotals() {
+    let subtotal = 0, iva = 0;
+    facItems.forEach(item => {
+      const sub = item.qty * item.price;
+      subtotal += sub;
+      iva      += sub * (item.iva / 100);
+    });
+    const moneda = document.getElementById('fac-moneda')?.value || 'MXN';
+    const fmt2 = n => formatFacMoney(n, moneda);
+    const subEl   = document.getElementById('fac-subtotal-display');
+    const ivaEl   = document.getElementById('fac-iva-display');
+    const totalEl = document.getElementById('fac-total-display');
+    if (subEl)   subEl.textContent   = fmt2(subtotal);
+    if (ivaEl)   ivaEl.textContent   = fmt2(iva);
+    if (totalEl) totalEl.textContent = fmt2(subtotal + iva);
+  }
+
+  function formatFacMoney(n, currency) {
+    const cur = currency || document.getElementById('fac-moneda')?.value || 'MXN';
+    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: cur }).format(n || 0);
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.appendChild(document.createTextNode(str || ''));
+    return div.innerHTML;
+  }
+
   // init new modules
   initRegistros();
   setupRegistrosEvents();
   setupReportesEvents();
+  initFacturaEditor();
 
 });
+
