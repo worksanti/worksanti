@@ -406,6 +406,12 @@ app.post('/api/calculos', (req, res) => {
   });
 });
 
+// ── Health Check para UptimeRobot ──────────────────────────────────────────
+// UptimeRobot hace GET a /health cada 5 min para mantener el servidor activo.
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // Start Server
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
