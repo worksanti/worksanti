@@ -1,0 +1,4 @@
+Referencia,Cliente,Aduana,Mercancia,Valor
+ABJ26-000101,TechSolutions,Veracruz,Cables de cobre,85000
+ABJ26-000102,GlobalLogistics,Manzanillo,Pantallas LED,120000
+ABJ26-000103,AduanaExpress,AIFA,Medicamentos,45000

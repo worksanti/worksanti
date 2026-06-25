@@ -1,0 +1,11 @@
+Referencia: ABJ26-000201
+Cliente: Importaciones MX
+Aduana: Nuevo Laredo
+Mercancia: Autopartes
+Valor: 320000
+
+Referencia: ABJ26-000202
+Cliente: Grupo Peninsular
+Aduana: Progreso
+Mercancia: Mármol
+Valor: 150000

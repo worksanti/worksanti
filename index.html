@@ -8,6 +8,8 @@
   <link rel="stylesheet" href="style.css">
   <!-- Lucide Icons CDN -->
   <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Mammoth.js: DOCX → HTML converter -->
+  <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
 </head>
 
 <body>
@@ -110,8 +112,8 @@
         </li>
         <li class="menu-item" data-section="facturas">
           <a href="#facturas">
-            <i class="icon-nav" data-lucide="receipt"></i>
-            <span>Editor Facturas</span>
+            <i class="icon-nav" data-lucide="file-text"></i>
+            <span>Editor Documentos</span>
           </a>
         </li>
       </ul>
@@ -738,22 +740,27 @@
           </div>
         </section>
 
-        <!-- ================= EDITOR DE FACTURAS ================= -->
+        <!-- ================= EDITOR DE DOCUMENTOS ================= -->
         <section id="facturas" class="page-section">
 
-          <!-- Toolbar -->
-          <div class="glass-card" style="margin-bottom: 20px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+          <!-- Top Toolbar -->
+          <div class="glass-card" style="margin-bottom: 16px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
               <div>
-                <div class="card-title" style="margin-bottom: 4px;">Editor de Facturas</div>
-                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Crea, edita e imprime facturas profesionales con todos los campos requeridos.</p>
+                <div class="card-title" style="margin-bottom:3px;">Editor de Documentos</div>
+                <p style="font-size:0.8rem;color:var(--text-muted);margin:0;">Sube un archivo Word (.docx) o comienza desde cero. Edita el contenido directamente y luego imprímelo o guárdalo como PDF.</p>
               </div>
-              <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                <button class="btn-secondary" id="btn-factura-nueva">
-                  <i data-lucide="file-plus" style="width:16px;height:16px;"></i>
-                  <span>Nueva Factura</span>
+              <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                <button class="btn-secondary" id="btn-doc-upload-trigger">
+                  <i data-lucide="upload-cloud" style="width:16px;height:16px;"></i>
+                  <span>Subir Archivo</span>
                 </button>
-                <button class="btn-secondary" id="btn-factura-pdf" style="border-color: #f59e0b; color: #f59e0b;">
+                <input type="file" id="doc-file-input" accept=".docx,.doc,.txt" style="display:none;">
+                <button class="btn-secondary" id="btn-doc-new">
+                  <i data-lucide="file-plus" style="width:16px;height:16px;"></i>
+                  <span>Nuevo</span>
+                </button>
+                <button class="btn-secondary" id="btn-doc-print" style="border-color:#10b981;color:#10b981;">
                   <i data-lucide="printer" style="width:16px;height:16px;"></i>
                   <span>Imprimir / PDF</span>
                 </button>
@@ -761,132 +768,135 @@
             </div>
           </div>
 
-          <!-- Invoice Canvas -->
-          <div class="glass-card" id="factura-canvas" style="padding: 40px 48px; max-width: 900px; margin: 0 auto; background: #fff; color: #111; border-radius: 16px; box-shadow: 0 8px 40px rgba(0,0,0,0.25);">
-
-            <!-- Header row -->
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 36px; gap: 24px; flex-wrap: wrap;">
-              <!-- Emisor -->
-              <div style="flex: 1; min-width: 220px;">
-                <div class="fac-logo-box" id="fac-logo-box" title="Haz clic para subir logo">
-                  <i data-lucide="image" style="width:28px;height:28px;color:#aaa;"></i>
-                  <span style="font-size:0.75rem;color:#aaa;margin-top:4px;">Logo empresa</span>
-                  <input type="file" id="fac-logo-input" accept="image/*" style="display:none;">
-                </div>
-                <div class="fac-field-group" style="margin-top: 14px;">
-                  <input class="fac-input fac-company" id="fac-emisor-nombre" value="Mi Empresa S.A. de C.V." placeholder="Nombre de la empresa">
-                  <input class="fac-input fac-small" id="fac-emisor-rfc" value="RFC: MEM-000000-000" placeholder="RFC">
-                  <input class="fac-input fac-small" id="fac-emisor-dir" value="Calle Ejemplo #100, Ciudad" placeholder="Dirección">
-                  <input class="fac-input fac-small" id="fac-emisor-tel" value="Tel: +52 000 000 0000" placeholder="Teléfono">
-                  <input class="fac-input fac-small" id="fac-emisor-email" value="contacto@empresa.com" placeholder="Email">
-                </div>
-              </div>
-              <!-- Factura Info -->
-              <div style="text-align: right; min-width: 200px;">
-                <h1 style="font-size: 2.2rem; font-weight: 800; color: #4f46e5; margin: 0 0 6px;">FACTURA</h1>
-                <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-end;">
-                  <div style="display:flex; gap:8px; align-items:center;">
-                    <span style="font-size:0.8rem;color:#555;font-weight:600;">No.:</span>
-                    <input class="fac-input fac-small" id="fac-numero" value="001" style="text-align:right;width:80px;">
-                  </div>
-                  <div style="display:flex; gap:8px; align-items:center;">
-                    <span style="font-size:0.8rem;color:#555;font-weight:600;">Fecha:</span>
-                    <input class="fac-input fac-small" type="date" id="fac-fecha" style="text-align:right;width:130px;">
-                  </div>
-                  <div style="display:flex; gap:8px; align-items:center;">
-                    <span style="font-size:0.8rem;color:#555;font-weight:600;">Vence:</span>
-                    <input class="fac-input fac-small" type="date" id="fac-vence" style="text-align:right;width:130px;">
-                  </div>
-                  <div style="display:flex; gap:8px; align-items:center;">
-                    <span style="font-size:0.8rem;color:#555;font-weight:600;">Moneda:</span>
-                    <select class="fac-input fac-small" id="fac-moneda" style="width:90px;">
-                      <option value="MXN">MXN</option>
-                      <option value="USD">USD</option>
-                      <option value="EUR">EUR</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
+          <!-- Drop Zone (shown when no document loaded) -->
+          <div class="glass-card" id="doc-drop-zone" style="text-align:center; padding:60px 40px; cursor:pointer; border: 2px dashed var(--card-border); transition: border-color 0.2s;">
+            <div style="width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,#4f46e5,#7c3aed);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
+              <i data-lucide="file-up" style="width:32px;height:32px;color:#fff;"></i>
             </div>
+            <h3 style="margin:0 0 8px;font-size:1.2rem;">Arrastra tu documento aquí</h3>
+            <p style="color:var(--text-muted);font-size:0.9rem;margin:0 0 20px;">o haz clic para seleccionar un archivo</p>
+            <p style="font-size:0.78rem;color:var(--text-muted);margin:0;">Formatos soportados: <strong>.docx</strong>, <strong>.txt</strong></p>
+          </div>
 
-            <!-- Divider -->
-            <div style="height: 2px; background: linear-gradient(90deg, #4f46e5, #7c3aed); border-radius: 2px; margin-bottom: 28px;"></div>
+          <!-- Editor Area (hidden until file loaded or new doc) -->
+          <div id="doc-editor-wrapper" style="display:none;">
 
-            <!-- Receptor -->
-            <div style="background: #f8f7ff; border-radius: 10px; padding: 18px 22px; margin-bottom: 28px;">
-              <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #4f46e5; margin-bottom: 10px;">FACTURAR A</div>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                <div>
-                  <input class="fac-input fac-medium" id="fac-receptor-nombre" value="Cliente Ejemplo" placeholder="Nombre del cliente">
-                  <input class="fac-input fac-small" id="fac-receptor-rfc" value="RFC: CLI-000000-000" placeholder="RFC del cliente">
-                  <input class="fac-input fac-small" id="fac-receptor-dir" value="Dirección del cliente" placeholder="Dirección">
-                </div>
-                <div>
-                  <input class="fac-input fac-small" id="fac-receptor-contacto" value="Contacto: Nombre" placeholder="Nombre de contacto">
-                  <input class="fac-input fac-small" id="fac-receptor-tel" value="Tel: +52 000 000 0000" placeholder="Teléfono">
-                  <input class="fac-input fac-small" id="fac-receptor-email" value="cliente@email.com" placeholder="Email">
-                </div>
+            <!-- Formatting Toolbar -->
+            <div class="glass-card doc-toolbar" id="doc-toolbar" style="margin-bottom:12px; padding:8px 14px;">
+              <!-- Font controls -->
+              <select id="doc-font-family" class="doc-tool-select" title="Fuente">
+                <option value="Inter, sans-serif">Inter</option>
+                <option value="'Times New Roman', serif">Times New Roman</option>
+                <option value="'Courier New', monospace">Courier New</option>
+                <option value="Arial, sans-serif">Arial</option>
+                <option value="Georgia, serif">Georgia</option>
+              </select>
+              <select id="doc-font-size" class="doc-tool-select" style="width:64px;" title="Tamaño">
+                <option value="10">10</option>
+                <option value="11">11</option>
+                <option value="12" selected>12</option>
+                <option value="14">14</option>
+                <option value="16">16</option>
+                <option value="18">18</option>
+                <option value="20">20</option>
+                <option value="24">24</option>
+                <option value="28">28</option>
+                <option value="32">32</option>
+                <option value="36">36</option>
+                <option value="48">48</option>
+              </select>
+
+              <div class="doc-toolbar-sep"></div>
+
+              <!-- Basic formatting -->
+              <button class="doc-tool-btn" data-cmd="bold" title="Negrita (Ctrl+B)"><b>B</b></button>
+              <button class="doc-tool-btn" data-cmd="italic" title="Cursiva (Ctrl+I)"><i>I</i></button>
+              <button class="doc-tool-btn" data-cmd="underline" title="Subrayado (Ctrl+U)"><u>U</u></button>
+              <button class="doc-tool-btn" data-cmd="strikeThrough" title="Tachado"><s>S</s></button>
+
+              <div class="doc-toolbar-sep"></div>
+
+              <!-- Alignment -->
+              <button class="doc-tool-btn" data-cmd="justifyLeft" title="Alinear izquierda"><i data-lucide="align-left" style="width:14px;height:14px;"></i></button>
+              <button class="doc-tool-btn" data-cmd="justifyCenter" title="Centrar"><i data-lucide="align-center" style="width:14px;height:14px;"></i></button>
+              <button class="doc-tool-btn" data-cmd="justifyRight" title="Alinear derecha"><i data-lucide="align-right" style="width:14px;height:14px;"></i></button>
+              <button class="doc-tool-btn" data-cmd="justifyFull" title="Justificar"><i data-lucide="align-justify" style="width:14px;height:14px;"></i></button>
+
+              <div class="doc-toolbar-sep"></div>
+
+              <!-- Lists -->
+              <button class="doc-tool-btn" data-cmd="insertUnorderedList" title="Lista con viñetas"><i data-lucide="list" style="width:14px;height:14px;"></i></button>
+              <button class="doc-tool-btn" data-cmd="insertOrderedList" title="Lista numerada"><i data-lucide="list-ordered" style="width:14px;height:14px;"></i></button>
+
+              <div class="doc-toolbar-sep"></div>
+
+              <!-- Indent -->
+              <button class="doc-tool-btn" data-cmd="outdent" title="Quitar sangría"><i data-lucide="indent-decrease" style="width:14px;height:14px;"></i></button>
+              <button class="doc-tool-btn" data-cmd="indent" title="Añadir sangría"><i data-lucide="indent-increase" style="width:14px;height:14px;"></i></button>
+
+              <div class="doc-toolbar-sep"></div>
+
+              <!-- Colors -->
+              <div style="display:flex;align-items:center;gap:4px;">
+                <span style="font-size:0.75rem;color:var(--text-muted);">A</span>
+                <input type="color" id="doc-color-text" value="#000000" title="Color de texto" style="width:28px;height:26px;padding:2px;border:1px solid var(--card-border);border-radius:4px;cursor:pointer;">
               </div>
-            </div>
+              <div style="display:flex;align-items:center;gap:4px;">
+                <span style="font-size:0.75rem;color:var(--text-muted);">BG</span>
+                <input type="color" id="doc-color-bg" value="#ffff00" title="Color de fondo" style="width:28px;height:26px;padding:2px;border:1px solid var(--card-border);border-radius:4px;cursor:pointer;">
+              </div>
 
-            <!-- Items Table -->
-            <table class="fac-table" id="fac-items-table">
-              <thead>
-                <tr>
-                  <th style="width:40%;">Descripción / Concepto</th>
-                  <th style="width:10%; text-align:center;">Cant.</th>
-                  <th style="width:15%; text-align:right;">Precio Unit.</th>
-                  <th style="width:12%; text-align:center;">IVA %</th>
-                  <th style="width:15%; text-align:right;">Subtotal</th>
-                  <th style="width:8%; text-align:center;">⠀</th>
-                </tr>
-              </thead>
-              <tbody id="fac-items-body">
-                <!-- JS populated -->
-              </tbody>
-            </table>
-            <div style="margin-top: 10px;">
-              <button class="btn-secondary" id="btn-add-item-fac" style="font-size:0.8rem; padding: 6px 14px;">
-                <i data-lucide="plus" style="width:14px;height:14px;"></i>
-                <span>Agregar concepto</span>
+              <div class="doc-toolbar-sep"></div>
+
+              <!-- Undo / Redo -->
+              <button class="doc-tool-btn" data-cmd="undo" title="Deshacer"><i data-lucide="undo-2" style="width:14px;height:14px;"></i></button>
+              <button class="doc-tool-btn" data-cmd="redo" title="Rehacer"><i data-lucide="redo-2" style="width:14px;height:14px;"></i></button>
+
+              <!-- Insert image -->
+              <div class="doc-toolbar-sep"></div>
+              <button class="doc-tool-btn" id="btn-doc-insert-img" title="Insertar imagen">
+                <i data-lucide="image-plus" style="width:14px;height:14px;"></i>
               </button>
-            </div>
+              <input type="file" id="doc-img-input" accept="image/*" style="display:none;">
 
-            <!-- Totals -->
-            <div style="display: flex; justify-content: flex-end; margin-top: 28px;">
-              <div style="min-width: 280px;">
-                <div class="fac-total-row">
-                  <span>Subtotal</span>
-                  <span id="fac-subtotal-display">$0.00</span>
-                </div>
-                <div class="fac-total-row">
-                  <span>IVA</span>
-                  <span id="fac-iva-display">$0.00</span>
-                </div>
-                <div class="fac-total-row fac-total-grand">
-                  <span>TOTAL</span>
-                  <span id="fac-total-display">$0.00</span>
-                </div>
+              <!-- Filename display -->
+              <div style="margin-left:auto;font-size:0.78rem;color:var(--text-muted);display:flex;align-items:center;gap:6px;">
+                <i data-lucide="file-text" style="width:14px;height:14px;"></i>
+                <span id="doc-filename">Documento sin título</span>
               </div>
             </div>
 
-            <!-- Notes -->
-            <div style="margin-top: 32px; border-top: 1px dashed #ddd; padding-top: 20px;">
-              <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: #888; margin-bottom: 8px;">NOTAS / CONDICIONES DE PAGO</div>
-              <textarea class="fac-textarea" id="fac-notas" placeholder="Ej. Pago a 30 días. Banco: BBVA. CLABE: 000000000000000000">Pago a 30 días. Gracias por su preferencia.</textarea>
+            <!-- Paper Canvas -->
+            <div style="max-width:900px;margin:0 auto;">
+              <div
+                id="doc-editor"
+                contenteditable="true"
+                spellcheck="true"
+                style="
+                  min-height: 1000px;
+                  background: #fff;
+                  color: #111;
+                  padding: 64px 80px;
+                  border-radius: 12px;
+                  box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+                  font-family: 'Inter', sans-serif;
+                  font-size: 12pt;
+                  line-height: 1.7;
+                  outline: none;
+                  word-break: break-word;
+                "
+              >
+                <!-- Content injected by JS -->
+              </div>
             </div>
 
-            <!-- Footer -->
-            <div style="margin-top: 28px; text-align: center; font-size: 0.75rem; color: #aaa;">
-              <div style="height: 1px; background: #eee; margin-bottom: 12px;"></div>
-              <input class="fac-input fac-small" id="fac-footer" value="Documento generado por AduanaFlow · worksanti.onrender.com" style="text-align:center; color:#aaa; font-size:0.75rem; width: 100%;">
-            </div>
           </div>
         </section>
 
       </div>
     </main>
   </div>
+
 
   <!-- ================= REGISTRO MODAL (NEW / EDIT) ================= -->
   <div class="modal-overlay" id="registro-modal">
@@ -1264,7 +1274,7 @@
   <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="data.js"></script>
-  <script src="app.js"></script>
+  <script src="app.js?v=2"></script>
 </body>
 
 </html>

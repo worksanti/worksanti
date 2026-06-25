@@ -1421,8 +1421,116 @@ body {
 }
 
 /* ═══════════════════════════════════════════════
-   EDITOR DE FACTURAS
+   EDITOR DE DOCUMENTOS
 ═══════════════════════════════════════════════ */
+
+/* Toolbar */
+.doc-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 14px !important;
+}
+
+.doc-tool-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 28px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.doc-tool-btn:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--card-border);
+}
+.doc-tool-btn.active {
+  background: rgba(79, 70, 229, 0.12);
+  border-color: #4f46e5;
+  color: #4f46e5;
+}
+
+.doc-tool-select {
+  height: 28px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--card-border);
+  border-radius: 5px;
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  padding: 0 6px;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  min-width: 110px;
+}
+.doc-tool-select:focus {
+  outline: none;
+  border-color: #4f46e5;
+}
+
+.doc-toolbar-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--card-border);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+/* Drop zone drag over state */
+#doc-drop-zone.drag-over {
+  border-color: #4f46e5 !important;
+  background: rgba(79, 70, 229, 0.04);
+}
+
+/* Editor content styling */
+#doc-editor:focus {
+  outline: none;
+}
+#doc-editor table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 12px 0;
+}
+#doc-editor table td,
+#doc-editor table th {
+  border: 1px solid #ccc;
+  padding: 6px 10px;
+}
+#doc-editor img {
+  max-width: 100%;
+  height: auto;
+}
+#doc-editor h1 { font-size: 2rem; font-weight: 700; margin: 16px 0 8px; }
+#doc-editor h2 { font-size: 1.5rem; font-weight: 600; margin: 14px 0 6px; }
+#doc-editor h3 { font-size: 1.2rem; font-weight: 600; margin: 12px 0 4px; }
+#doc-editor p  { margin: 6px 0; }
+#doc-editor ul, #doc-editor ol { padding-left: 24px; margin: 8px 0; }
+
+/* ─── Print Media for Document Editor ─── */
+@media print {
+  body * { visibility: hidden; }
+  #doc-editor,
+  #doc-editor * { visibility: visible; }
+  #doc-editor {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%;
+    min-height: auto;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 32px 48px !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+}
+
 
 /* Inputs transparentes dentro de la factura */
 .fac-input {

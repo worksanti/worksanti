@@ -1,5 +1,4 @@
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
@@ -21,37 +20,115 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, '')));
 
-// Initialize SQLite DB
-const dbFile = path.join(__dirname, 'database.sqlite');
-const db = new sqlite3.Database(dbFile, (err) => {
-  if (err) {
-    console.error('Error opening database', err.message);
-  } else {
-    console.log('Connected to the SQLite database.');
-    db.run(`CREATE TABLE IF NOT EXISTS registros (
-      id TEXT PRIMARY KEY,
-      refNo TEXT,
-      fecha TEXT,
-      estado TEXT,
-      operacion TEXT,
-      doc TEXT,
-      aduana TEXT,
-      patente TEXT,
-      cliente TEXT,
-      importadorExportador TEXT,
-      c20 INTEGER,
-      c40 INTEGER,
-      bultos INTEGER,
-      clase TEXT,
-      mercancia TEXT,
-      observaciones TEXT,
-      prioridad INTEGER,
-      contacto TEXT,
-      user_id TEXT
-    )`, (err) => {
-      if (err) console.error("Error creating registros table", err);
-      
-      db.run(`CREATE TABLE IF NOT EXISTS embarques (
+// Database setup: SQLite local / PostgreSQL on Render
+let db;
+const isPostgres = !!process.env.DATABASE_URL;
+
+if (isPostgres) {
+  console.log('Connecting to PostgreSQL database at DATABASE_URL...');
+  const { Pool } = require('pg');
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+  });
+
+  const convertSql = (sql) => {
+    let index = 1;
+    return sql.replace(/\?/g, () => `$${index++}`);
+  };
+
+  db = {
+    get: (sql, params, callback) => {
+      if (typeof params === 'function') {
+        callback = params;
+        params = [];
+      }
+      pool.query(convertSql(sql), params, (err, res) => {
+        if (err) {
+          console.error('PG Error in get:', err.message, '\nSQL:', sql, '\nParams:', params);
+          return callback(err);
+        }
+        callback(null, res.rows[0] || null);
+      });
+    },
+    all: (sql, params, callback) => {
+      if (typeof params === 'function') {
+        callback = params;
+        params = [];
+      }
+      pool.query(convertSql(sql), params, (err, res) => {
+        if (err) {
+          console.error('PG Error in all:', err.message, '\nSQL:', sql, '\nParams:', params);
+          return callback(err);
+        }
+        callback(null, res.rows);
+      });
+    },
+    run: function(sql, params, callback) {
+      if (typeof params === 'function') {
+        callback = params;
+        params = [];
+      }
+      pool.query(convertSql(sql), params, (err, res) => {
+        if (err) {
+          console.error('PG Error in run:', err.message, '\nSQL:', sql, '\nParams:', params);
+          if (callback) callback(err);
+          return;
+        }
+        const context = { changes: res.rowCount, lastID: null };
+        if (callback) callback.call(context, null);
+      });
+    },
+    serialize: (callback) => {
+      callback();
+    },
+    prepare: (sql) => {
+      const converted = convertSql(sql);
+      return {
+        run: function(...args) {
+          let callback = null;
+          let params = args;
+          if (args.length > 0 && typeof args[args.length - 1] === 'function') {
+            callback = args[args.length - 1];
+            params = args.slice(0, -1);
+          }
+          pool.query(converted, params, (err) => {
+            if (callback) callback(err);
+          });
+        },
+        finalize: (callback) => {
+          if (callback) callback();
+        }
+      };
+    }
+  };
+
+  // Initialize PostgreSQL tables
+  const initDb = async () => {
+    try {
+      await pool.query(`CREATE TABLE IF NOT EXISTS registros (
+        id TEXT PRIMARY KEY,
+        refNo TEXT,
+        fecha TEXT,
+        estado TEXT,
+        operacion TEXT,
+        doc TEXT,
+        aduana TEXT,
+        patente TEXT,
+        cliente TEXT,
+        importadorExportador TEXT,
+        c20 INTEGER,
+        c40 INTEGER,
+        bultos INTEGER,
+        clase TEXT,
+        mercancia TEXT,
+        observaciones TEXT,
+        prioridad INTEGER,
+        contacto TEXT,
+        user_id TEXT
+      )`);
+
+      await pool.query(`CREATE TABLE IF NOT EXISTS embarques (
         id TEXT PRIMARY KEY,
         cliente TEXT,
         mercancia TEXT,
@@ -68,58 +145,159 @@ const db = new sqlite3.Database(dbFile, (err) => {
         documentos TEXT,
         historial TEXT,
         user_id TEXT
-      )`, (err2) => {
-        if (err2) console.error("Error creating embarques table", err2);
-        
-        db.run(`CREATE TABLE IF NOT EXISTS calculos (
-          id TEXT PRIMARY KEY,
-          fecha TEXT,
-          fraccion_codigo TEXT,
-          fraccion_nombre TEXT,
-          valor_factura REAL,
-          flete REAL,
-          seguro REAL,
-          origen TEXT,
-          igi REAL,
-          dta REAL,
-          iva REAL,
-          total_impuestos REAL,
-          user_id TEXT
-        )`, (err3) => {
-          if (err3) console.error("Error creating calculos table", err3);
-          else {
-            db.serialize(() => {
-              // Configuración para permitir múltiples conexiones simultáneas
-              db.run("PRAGMA journal_mode = WAL");
-            
-              db.run(`CREATE TABLE IF NOT EXISTS usuarios (
-                id TEXT PRIMARY KEY,
-                username TEXT UNIQUE,
-                password_hash TEXT,
-                email TEXT,
-                phone TEXT UNIQUE,
-                is_verified INTEGER DEFAULT 0,
-                verification_code TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-              )`);
-              
-              // Agregar silenciosamente la columna phone por si la tabla ya existe
-              db.run("ALTER TABLE usuarios ADD COLUMN phone TEXT", (err) => {
-                // Ignoramos el error si la columna ya existe
-              });
+      )`);
 
-              db.run("ALTER TABLE registros ADD COLUMN user_id TEXT", () => {});
-              db.run("ALTER TABLE embarques ADD COLUMN user_id TEXT", () => {});
-              db.run("ALTER TABLE calculos ADD COLUMN user_id TEXT", () => {});
+      await pool.query(`CREATE TABLE IF NOT EXISTS calculos (
+        id TEXT PRIMARY KEY,
+        fecha TEXT,
+        fraccion_codigo TEXT,
+        fraccion_nombre TEXT,
+        valor_factura REAL,
+        flete REAL,
+        seguro REAL,
+        origen TEXT,
+        igi REAL,
+        dta REAL,
+        iva REAL,
+        total_impuestos REAL,
+        user_id TEXT
+      )`);
+
+      await pool.query(`CREATE TABLE IF NOT EXISTS usuarios (
+        id TEXT PRIMARY KEY,
+        username TEXT UNIQUE,
+        password_hash TEXT,
+        email TEXT,
+        phone TEXT UNIQUE,
+        is_verified INTEGER DEFAULT 0,
+        verification_code TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )`);
+
+      // Add columns if they do not exist
+      try { await pool.query(`ALTER TABLE usuarios ADD COLUMN phone TEXT`); } catch (_) {}
+      try { await pool.query(`ALTER TABLE registros ADD COLUMN user_id TEXT`); } catch (_) {}
+      try { await pool.query(`ALTER TABLE embarques ADD COLUMN user_id TEXT`); } catch (_) {}
+      try { await pool.query(`ALTER TABLE calculos ADD COLUMN user_id TEXT`); } catch (_) {}
+
+      console.log('PostgreSQL database tables initialized successfully.');
+      seedDataIfNeeded();
+    } catch (err) {
+      console.error('Error initializing PostgreSQL tables:', err.message);
+    }
+  };
+  initDb();
+
+} else {
+  console.log('Connecting to SQLite database...');
+  const sqlite3 = require('sqlite3').verbose();
+  const dbFile = path.join(__dirname, 'database.sqlite');
+  const sqliteDb = new sqlite3.Database(dbFile, (err) => {
+    if (err) {
+      console.error('Error opening database', err.message);
+    } else {
+      console.log('Connected to the SQLite database.');
+      
+      sqliteDb.run(`CREATE TABLE IF NOT EXISTS registros (
+        id TEXT PRIMARY KEY,
+        refNo TEXT,
+        fecha TEXT,
+        estado TEXT,
+        operacion TEXT,
+        doc TEXT,
+        aduana TEXT,
+        patente TEXT,
+        cliente TEXT,
+        importadorExportador TEXT,
+        c20 INTEGER,
+        c40 INTEGER,
+        bultos INTEGER,
+        clase TEXT,
+        mercancia TEXT,
+        observaciones TEXT,
+        prioridad INTEGER,
+        contacto TEXT,
+        user_id TEXT
+      )`, (err) => {
+        if (err) console.error("Error creating registros table", err);
+        
+        sqliteDb.run(`CREATE TABLE IF NOT EXISTS embarques (
+          id TEXT PRIMARY KEY,
+          cliente TEXT,
+          mercancia TEXT,
+          origen TEXT,
+          puertoOrigen TEXT,
+          destino TEXT,
+          valorFactura INTEGER,
+          moneda TEXT,
+          tipoOperacion TEXT,
+          estado TEXT,
+          semaforo TEXT,
+          agenteAduanal TEXT,
+          pedimento TEXT,
+          documentos TEXT,
+          historial TEXT,
+          user_id TEXT
+        )`, (err2) => {
+          if (err2) console.error("Error creating embarques table", err2);
+          
+          sqliteDb.run(`CREATE TABLE IF NOT EXISTS calculos (
+            id TEXT PRIMARY KEY,
+            fecha TEXT,
+            fraccion_codigo TEXT,
+            fraccion_nombre TEXT,
+            valor_factura REAL,
+            flete REAL,
+            seguro REAL,
+            origen TEXT,
+            igi REAL,
+            dta REAL,
+            iva REAL,
+            total_impuestos REAL,
+            user_id TEXT
+          )`, (err3) => {
+            if (err3) console.error("Error creating calculos table", err3);
+            else {
+              sqliteDb.serialize(() => {
+                sqliteDb.run("PRAGMA journal_mode = WAL");
               
-              seedDataIfNeeded();
-            });
-          }
+                sqliteDb.run(`CREATE TABLE IF NOT EXISTS usuarios (
+                  id TEXT PRIMARY KEY,
+                  username TEXT UNIQUE,
+                  password_hash TEXT,
+                  email TEXT,
+                  phone TEXT UNIQUE,
+                  is_verified INTEGER DEFAULT 0,
+                  verification_code TEXT,
+                  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )`);
+                
+                sqliteDb.run("ALTER TABLE usuarios ADD COLUMN phone TEXT", () => {});
+                sqliteDb.run("ALTER TABLE registros ADD COLUMN user_id TEXT", () => {});
+                sqliteDb.run("ALTER TABLE embarques ADD COLUMN user_id TEXT", () => {});
+                sqliteDb.run("ALTER TABLE calculos ADD COLUMN user_id TEXT", () => {});
+                
+                seedDataIfNeeded();
+              });
+            }
+          });
         });
       });
-    });
-  }
-});
+    }
+  });
+
+  db = {
+    get: (sql, params, callback) => sqliteDb.get(sql, params, callback),
+    all: (sql, params, callback) => sqliteDb.all(sql, params, callback),
+    run: function(sql, params, callback) {
+      sqliteDb.run(sql, params, function(err) {
+        if (callback) callback.call(this, err);
+      });
+    },
+    serialize: (callback) => sqliteDb.serialize(callback),
+    prepare: (sql) => sqliteDb.prepare(sql)
+  };
+}
 
 // Seed Initial Data from data.js
 function seedDataIfNeeded() {
