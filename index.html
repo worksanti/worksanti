@@ -102,6 +102,12 @@
             <span>Reportes</span>
           </a>
         </li>
+        <li class="menu-item" data-section="convertidor">
+          <a href="#convertidor">
+            <i class="icon-nav" data-lucide="file-spreadsheet"></i>
+            <span>Convertidor</span>
+          </a>
+        </li>
       </ul>
 
       <div class="sidebar-footer">
@@ -661,6 +667,71 @@
           </div>
         </section>
 
+        <!-- ================= CONVERTIDOR VIEW ================= -->
+        <section id="convertidor" class="page-section">
+          <div class="glass-card" style="margin-bottom: 24px;">
+            <div class="card-title">Convertidor de Texto a Excel</div>
+            <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 20px;">
+              Sube tu archivo de texto (.txt, .asc) y organízalo en un archivo de Excel (.xlsx). Puedes autodetectar los separadores o usar el formato inteligente de Clave-Valor. Luego, edita los títulos directamente en la tabla antes de descargar.
+            </p>
+
+            <div class="upload-zone" id="converter-upload-zone" style="margin-bottom: 20px;">
+              <i data-lucide="file-text" style="width: 48px; height: 48px; color: var(--accent-primary); margin-bottom: 12px;"></i>
+              <h3>Arrastra tu archivo aquí o haz clic para buscar</h3>
+              <p>Formatos aceptados: .txt, .csv, .tsv, .asc. Tamaño máximo: 10MB.</p>
+              <input type="file" id="converter-file-input" style="display: none;" accept=".txt,.csv,.tsv,.asc">
+              <div id="converter-file-selected" style="margin-top: 12px; font-size: 0.9rem; font-weight: 600; color: var(--accent-primary); display: none;"></div>
+            </div>
+
+            <!-- Configuration controls -->
+            <div class="converter-config-row" style="display: flex; gap: 16px; align-items: center; background: var(--bg-primary); padding: 16px; border-radius: var(--border-radius-md); margin-bottom: 20px; flex-wrap: wrap;">
+              <div class="form-group" style="margin: 0; flex: 1; min-width: 200px;">
+                <label style="font-weight: 600; margin-bottom: 6px; display: block; font-size: 0.85rem;">Método de Lectura / Separador</label>
+                <select class="form-control" id="converter-delimiter" style="background-color: var(--bg-secondary);">
+                  <option value="auto" selected>Autodetectar delimitador (Coma, Tab, Punto y coma, Barra |)</option>
+                  <option value="comma">Coma ( , )</option>
+                  <option value="semicolon">Punto y coma ( ; )</option>
+                  <option value="tab">Tabulación ( Tab )</option>
+                  <option value="pipe">Barra vertical ( | )</option>
+                  <option value="keyvalue">Clave-Valor inteligente (Propiedad: Valor)</option>
+                  <option value="lines">Línea por fila (Una sola columna)</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin: 0; display: flex; align-items: center; gap: 8px; margin-top: 20px;">
+                <input type="checkbox" id="converter-ignore-empty" checked style="width: 16px; height: 16px; cursor: pointer;">
+                <label for="converter-ignore-empty" style="font-weight: 500; font-size: 0.85rem; cursor: pointer; user-select: none;">Ignorar líneas vacías</label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Preview & Download Section -->
+          <div class="glass-card" id="converter-preview-card" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+              <div>
+                <div class="card-title" style="margin-bottom: 4px;">Previsualización interactiva de datos</div>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">
+                  * Haz clic en los títulos de la tabla para editarlos directamente antes de exportar.
+                </p>
+              </div>
+              <button class="btn-primary" id="btn-export-excel" style="background: linear-gradient(135deg, #10b981, #059669); border: none; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);">
+                <i data-lucide="file-spreadsheet" style="width: 18px; height: 18px; margin-right: 8px;"></i>
+                <span>Descargar Excel (.xlsx)</span>
+              </button>
+            </div>
+
+            <div class="table-container" style="max-height: 50vh; overflow-y: auto;">
+              <table class="custom-table" id="converter-preview-table">
+                <thead id="converter-preview-head">
+                  <!-- JS populated dynamic editable headers -->
+                </thead>
+                <tbody id="converter-preview-body">
+                  <!-- JS populated rows -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
       </div>
     </main>
   </div>
@@ -1039,6 +1110,7 @@
   <div class="toast-container" id="toast-container"></div>
 
   <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="data.js"></script>
   <script src="app.js"></script>
 </body>

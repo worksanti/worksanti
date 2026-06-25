@@ -1383,3 +1383,39 @@ body {
 .auth-header {
   margin-bottom: 30px;
 }
+
+/* ─────────────────────────────────────
+   CONVERTIDOR SECTION
+───────────────────────────────────── */
+.editable-header-input {
+  background: transparent;
+  border: 1px dashed transparent;
+  color: var(--text-primary);
+  font-family: var(--font-title);
+  font-size: 0.88rem;
+  font-weight: 700;
+  padding: 4px 8px;
+  width: 100%;
+  border-radius: 4px;
+  transition: var(--transition-smooth);
+}
+
+.editable-header-input:hover {
+  background: rgba(37, 99, 235, 0.05);
+  border-color: rgba(37, 99, 235, 0.3);
+  cursor: pointer;
+}
+
+.editable-header-input:focus {
+  background: var(--bg-secondary);
+  border-color: var(--accent-primary);
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-primary-glow);
+}
+
+.converter-preview-table-container {
+  margin-top: 15px;
+  border-radius: var(--border-radius-md);
+  overflow: hidden;
+  border: 1.5px solid var(--card-border);
+}

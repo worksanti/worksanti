@@ -114,7 +114,10 @@ document.addEventListener("DOMContentLoaded", () => {
     selectedTariffCode: null,
     uploadedModalFile: null,
     calculos: [],
-    lastCalculo: null
+    lastCalculo: null,
+    rawConverterText: "",
+    converterData: null,
+    converterHeaders: []
   };
 
   // --- SELECTORS ---
@@ -175,6 +178,17 @@ document.addEventListener("DOMContentLoaded", () => {
   // Toast Container
   const toastContainer = document.getElementById("toast-container");
 
+  // Converter Selectors
+  const converterUploadZone = document.getElementById("converter-upload-zone");
+  const converterFileInput = document.getElementById("converter-file-input");
+  const converterFileSelected = document.getElementById("converter-file-selected");
+  const converterDelimiter = document.getElementById("converter-delimiter");
+  const converterIgnoreEmpty = document.getElementById("converter-ignore-empty");
+  const converterPreviewCard = document.getElementById("converter-preview-card");
+  const converterPreviewHead = document.getElementById("converter-preview-head");
+  const converterPreviewBody = document.getElementById("converter-preview-body");
+  const btnExportExcel = document.getElementById("btn-export-excel");
+
   // --- INITIALIZATION ---
   async function init() {
     try {
@@ -195,6 +209,7 @@ document.addEventListener("DOMContentLoaded", () => {
     renderAllDocuments();
     renderCalculosHistory();
     setupEventListeners();
+    setupConverter();
     
     // Initialize Lucide Icons
     lucide.createIcons();
@@ -238,7 +253,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Check URL Hash on load
     const hash = window.location.hash.replace("#", "");
-    if (hash && ["dashboard", "shipments", "calculator", "documents", "registros", "reportes"].includes(hash)) {
+    if (hash && ["dashboard", "shipments", "calculator", "documents", "registros", "reportes", "convertidor"].includes(hash)) {
       navigateToSection(hash);
     }
   }
@@ -269,6 +284,7 @@ document.addEventListener("DOMContentLoaded", () => {
     else if (sectionId === "documents") title = "Gestor Documental Pre-Auditoría";
     else if (sectionId === "registros") title = "Registros de Operaciones Aduanales";
     else if (sectionId === "reportes") title = "Generador de Reportes";
+    else if (sectionId === "convertidor") title = "Convertidor de Texto a Excel";
     pageTitle.textContent = title;
 
     // Trigger section-specific updates
@@ -282,6 +298,8 @@ document.addEventListener("DOMContentLoaded", () => {
       renderRegistrosTable();
     } else if (sectionId === "reportes") {
       populateReporteClienteSelect();
+    } else if (sectionId === "convertidor") {
+      // Lazy init event listeners or rendering if needed
     }
 
     // Update Hash
@@ -1070,6 +1088,396 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     lucide.createIcons();
+  }
+
+  // --- CONVERTIDOR CONTROLLER ---
+  function setupConverter() {
+    if (!converterUploadZone) return;
+
+    // Dropzone Click
+    converterUploadZone.addEventListener("click", () => converterFileInput.click());
+
+    // File Input Change
+    converterFileInput.addEventListener("change", (e) => {
+      const files = e.target.files;
+      if (files.length > 0) {
+        handleConverterFile(files[0]);
+      }
+    });
+
+    // Drag and drop event listeners
+    converterUploadZone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      converterUploadZone.classList.add("dragover");
+    });
+
+    converterUploadZone.addEventListener("dragleave", () => {
+      converterUploadZone.classList.remove("dragover");
+    });
+
+    converterUploadZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      converterUploadZone.classList.remove("dragover");
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        handleConverterFile(files[0]);
+      }
+    });
+
+    // Config controls change listeners to re-process raw text
+    converterDelimiter.addEventListener("change", () => {
+      if (state.rawConverterText) {
+        processAndPreviewText();
+      }
+    });
+
+    converterIgnoreEmpty.addEventListener("change", () => {
+      if (state.rawConverterText) {
+        processAndPreviewText();
+      }
+    });
+
+    // Export button listener
+    btnExportExcel.addEventListener("click", exportConverterToExcel);
+  }
+
+  function handleConverterFile(file) {
+    // Show selected filename
+    converterFileSelected.textContent = `Archivo cargado: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+    converterFileSelected.style.display = "block";
+    
+    showToast(`Cargando y analizando "${file.name}"...`, "warning");
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      state.rawConverterText = e.target.result;
+      processAndPreviewText();
+      showToast("Archivo procesado. Revisa la previsualización abajo.", "success");
+    };
+    reader.onerror = () => {
+      showToast("Error al leer el archivo de texto.", "error");
+    };
+    reader.readAsText(file);
+  }
+
+  function processAndPreviewText() {
+    if (!state.rawConverterText) return;
+
+    const ignoreEmpty = converterIgnoreEmpty.checked;
+    let delimiter = converterDelimiter.value;
+    const lines = state.rawConverterText.split(/\r?\n/);
+    
+    // Filter out empty lines if checked
+    const activeLines = ignoreEmpty ? lines.filter(l => l.trim() !== "") : lines;
+
+    if (activeLines.length === 0) {
+      showToast("El archivo de texto está vacío o solo contiene líneas vacías.", "warning");
+      return;
+    }
+
+    let headers = [];
+    let data = [];
+
+    // Autodetect delimiter if set to auto
+    if (delimiter === "auto") {
+      const counts = { comma: 0, semicolon: 0, tab: 0, pipe: 0 };
+      // Sample first 20 lines to count delimiters
+      const sampleLines = activeLines.slice(0, 20);
+      sampleLines.forEach(line => {
+        counts.comma += (line.match(/,/g) || []).length;
+        counts.semicolon += (line.match(/;/g) || []).length;
+        counts.tab += (line.match(/\t/g) || []).length;
+        counts.pipe += (line.match(/\|/g) || []).length;
+      });
+
+      // Find max occurrence
+      let maxCount = 0;
+      let detected = "comma";
+      for (const [key, count] of Object.entries(counts)) {
+        if (count > maxCount) {
+          maxCount = count;
+          detected = key;
+        }
+      }
+      
+      // If we didn't find any delimiter, check if it looks like key-value
+      if (maxCount === 0) {
+        let keyValueMatches = 0;
+        sampleLines.forEach(line => {
+          if (line.includes(":") || line.includes("=")) keyValueMatches++;
+        });
+        if (keyValueMatches > sampleLines.length * 0.4) {
+          detected = "keyvalue";
+        } else {
+          detected = "lines";
+        }
+      }
+      
+      delimiter = detected;
+      console.log("Autodetected delimiter/format:", delimiter);
+    }
+
+    // Parse according to the determined delimiter
+    if (delimiter === "keyvalue") {
+      // Key-Value parsing mode
+      let currentRecord = {};
+      const uniqueKeys = new Set();
+      const records = [];
+
+      lines.forEach(line => {
+        const trimmed = line.trim();
+        if (trimmed === "") {
+          // Empty line marks end of a record
+          if (Object.keys(currentRecord).length > 0) {
+            records.push(currentRecord);
+            currentRecord = {};
+          }
+        } else {
+          // Parse key-value: look for ':' or '='
+          const separatorIdx = trimmed.indexOf(":") !== -1 ? trimmed.indexOf(":") : trimmed.indexOf("=");
+          if (separatorIdx !== -1) {
+            const key = trimmed.substring(0, separatorIdx).trim();
+            const val = trimmed.substring(separatorIdx + 1).trim();
+            if (key) {
+              currentRecord[key] = val;
+              uniqueKeys.add(key);
+            }
+          }
+        }
+      });
+      // Push last record
+      if (Object.keys(currentRecord).length > 0) {
+        records.push(currentRecord);
+      }
+
+      // Convert Set of keys to headers
+      headers = Array.from(uniqueKeys).map(k => ({ original: k, current: k }));
+      data = records;
+      
+      if (data.length === 0 && activeLines.length > 0) {
+        // Fallback if keyvalue format failed to extract records
+        showToast("No se detectó formato Clave-Valor estructurado. Probando con modo Línea por Fila.", "warning");
+        delimiter = "lines";
+      }
+    }
+
+    if (delimiter === "lines") {
+      // Each line is a row with 1 column
+      headers = [{ original: "Contenido", current: "Contenido" }];
+      data = activeLines.map(line => [line]);
+    } else if (delimiter !== "keyvalue") {
+      // Tabular delimiters: comma, semicolon, tab, pipe
+      let sep = ",";
+      if (delimiter === "semicolon") sep = ";";
+      else if (delimiter === "tab") sep = "\t";
+      else if (delimiter === "pipe") sep = "|";
+
+      // First line as header
+      const headerLine = activeLines[0];
+      const headerCells = headerLine.split(sep).map(h => h.trim());
+      
+      headers = headerCells.map((h, idx) => {
+        const name = h || `Columna ${idx + 1}`;
+        return { original: name, current: name };
+      });
+
+      // Data rows
+      data = activeLines.slice(1).map(line => {
+        return line.split(sep).map(c => c.trim());
+      });
+    }
+
+    state.converterHeaders = headers;
+    state.converterData = data;
+    state.converterFormat = delimiter; // Save format used
+
+    renderConverterPreview();
+  }
+
+  function renderConverterPreview() {
+    if (!state.converterHeaders || state.converterHeaders.length === 0) {
+      converterPreviewCard.style.display = "none";
+      return;
+    }
+
+    converterPreviewCard.style.display = "block";
+    
+    // Clear head and body
+    converterPreviewHead.innerHTML = "";
+    converterPreviewBody.innerHTML = "";
+
+    // Render Headers
+    const headerTr = document.createElement("tr");
+    state.converterHeaders.forEach((hdr, idx) => {
+      const th = document.createElement("th");
+      th.style.padding = "8px";
+      th.innerHTML = `
+        <input type="text" class="editable-header-input" value="${hdr.current}" data-idx="${idx}" title="Haz clic para renombrar la columna">
+      `;
+      headerTr.appendChild(th);
+    });
+    converterPreviewHead.appendChild(headerTr);
+
+    // Bind event listeners to headers to update state.converterHeaders.current
+    const inputs = headerTr.querySelectorAll(".editable-header-input");
+    inputs.forEach(input => {
+      input.addEventListener("input", (e) => {
+        const idx = parseInt(e.target.getAttribute("data-idx"));
+        state.converterHeaders[idx].current = e.target.value;
+      });
+    });
+
+    // Render Rows (Preview up to 15 rows)
+    const previewRows = state.converterData.slice(0, 15);
+    
+    if (previewRows.length === 0) {
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.colSpan = state.converterHeaders.length;
+      td.style.textAlign = "center";
+      td.style.padding = "20px";
+      td.style.color = "var(--text-muted)";
+      td.textContent = "No hay datos de filas para mostrar.";
+      tr.appendChild(td);
+      converterPreviewBody.appendChild(tr);
+      return;
+    }
+
+    previewRows.forEach(row => {
+      const tr = document.createElement("tr");
+      state.converterHeaders.forEach((hdr) => {
+        const td = document.createElement("td");
+        td.style.padding = "10px 12px";
+        
+        let cellVal = "";
+        if (state.converterFormat === "keyvalue") {
+          // Data is object
+          cellVal = row[hdr.original] !== undefined ? row[hdr.original] : "";
+        } else {
+          // Data is array
+          const idx = state.converterHeaders.findIndex(h => h.original === hdr.original);
+          cellVal = row[idx] !== undefined ? row[idx] : "";
+        }
+        
+        td.textContent = cellVal;
+        tr.appendChild(td);
+      });
+      converterPreviewBody.appendChild(tr);
+    });
+    
+    // Add info note about total rows parsed
+    const footerInfo = document.createElement("tr");
+    const footerTd = document.createElement("td");
+    footerTd.colSpan = state.converterHeaders.length;
+    footerTd.style.padding = "12px";
+    footerTd.style.fontSize = "0.8rem";
+    footerTd.style.color = "var(--text-muted)";
+    footerTd.style.backgroundColor = "var(--bg-primary)";
+    footerTd.style.borderTop = "1px solid var(--card-border)";
+    footerTd.innerHTML = `Mostrando previsualización de <strong>${previewRows.length}</strong> de <strong>${state.converterData.length}</strong> filas detectadas. Formato detectado: <strong>${translateDelimiterName(state.converterFormat)}</strong>.`;
+    footerInfo.appendChild(footerTd);
+    converterPreviewBody.appendChild(footerInfo);
+
+    lucide.createIcons();
+  }
+
+  function translateDelimiterName(fmt) {
+    switch(fmt) {
+      case "comma": return "Coma (,)";
+      case "semicolon": return "Punto y coma (;)";
+      case "tab": return "Tabulación";
+      case "pipe": return "Barra vertical (|)";
+      case "keyvalue": return "Clave-Valor inteligente";
+      case "lines": return "Línea por Fila";
+      default: return fmt;
+    }
+  }
+
+  function exportConverterToExcel() {
+    if (!state.converterData || state.converterData.length === 0) {
+      showToast("No hay datos cargados para exportar.", "error");
+      return;
+    }
+
+    try {
+      // Map data to the updated column titles (headers)
+      const exportRows = state.converterData.map(row => {
+        const item = {};
+        state.converterHeaders.forEach((hdr) => {
+          let cellVal = "";
+          if (state.converterFormat === "keyvalue") {
+            cellVal = row[hdr.original] !== undefined ? row[hdr.original] : "";
+          } else {
+            const idx = state.converterHeaders.findIndex(h => h.original === hdr.original);
+            cellVal = row[idx] !== undefined ? row[idx] : "";
+          }
+          item[hdr.current || hdr.original] = cellVal;
+        });
+        return item;
+      });
+
+      const filename = `datos_convertidos_${new Date().toISOString().slice(0, 10)}`;
+
+      // Check if SheetJS is available
+      if (typeof XLSX !== 'undefined') {
+        // Use SheetJS to write to Excel
+        const worksheet = XLSX.utils.json_to_sheet(exportRows);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Datos Convertidos");
+        
+        // Auto-fit column widths
+        const maxColWidths = [];
+        state.converterHeaders.forEach(hdr => {
+          const title = hdr.current || hdr.original;
+          maxColWidths.push({ wch: Math.max(title.length + 3, 10) });
+        });
+        worksheet['!cols'] = maxColWidths;
+
+        XLSX.writeFile(workbook, `${filename}.xlsx`);
+        showToast(`¡Archivo Excel "${filename}.xlsx" descargado con éxito!`, "success");
+      } else {
+        // Fallback: Generate Excel-compatible CSV (Semicolon delimited, UTF-8 BOM)
+        console.warn("SheetJS (XLSX) library not loaded. Falling back to CSV.");
+        
+        const headerNames = state.converterHeaders.map(hdr => hdr.current || hdr.original);
+        
+        // Escape helper for CSV cells
+        const escapeCSVField = (val) => {
+          if (val === null || val === undefined) return '';
+          let text = String(val);
+          if (text.includes(';') || text.includes('"') || text.includes('\n') || text.includes('\r')) {
+            return `"${text.replace(/"/g, '""')}"`;
+          }
+          return text;
+        };
+
+        let csvContent = headerNames.map(escapeCSVField).join(';') + '\r\n';
+        
+        exportRows.forEach(row => {
+          const line = headerNames.map(name => escapeCSVField(row[name])).join(';');
+          csvContent += line + '\r\n';
+        });
+
+        // Add UTF-8 BOM to make Excel open it directly with accents/special characters
+        const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        if (link.download !== undefined) {
+          const url = URL.createObjectURL(blob);
+          link.setAttribute("href", url);
+          link.setAttribute("download", `${filename}.csv`);
+          link.style.visibility = 'hidden';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          showToast(`¡Excel no disponible, descargado como CSV compatible: "${filename}.csv"!`, "warning");
+        } else {
+          showToast("No se pudo iniciar la descarga del archivo CSV.", "error");
+        }
+      }
+    } catch (e) {
+      console.error("Export error", e);
+      showToast("Error al exportar los datos.", "error");
+    }
   }
 
   // --- NEW SHIPMENT MODAL HANDLERS ---
